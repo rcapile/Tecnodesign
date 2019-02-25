@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Schema Builder/Parser
  *
@@ -15,23 +16,23 @@
  */
 class Tecnodesign_Schema implements ArrayAccess
 {
-    const JSON_SCHEMA_VERSION='draft-07';
+    const JSON_SCHEMA_VERSION = 'draft-07';
 
-    public static 
-        $errorInvalid='This is not a valid value for %s.',
-        $errorInteger='An integer number is expected.',
-        $errorMinorThan='%s is less than the expected minimum %s',
-        $errorGreaterThan='%s is more than the expected maximum %s',
-        $errorMandatory='%s is mandatory and should not be a blank value.',
+    public static
+        $errorInvalid = 'This is not a valid value for %s.',
+        $errorInteger = 'An integer number is expected.',
+        $errorMinorThan = '%s is less than the expected minimum %s',
+        $errorGreaterThan = '%s is more than the expected maximum %s',
+        $errorMandatory = '%s is mandatory and should not be a blank value.',
         $error;
 
-    protected 
+    protected
         $database,
         $className,
         $tableName,
         $view,
         $properties,
-        $patternProperties=array('/^_/'=>array('type'=>'text')),
+        $patternProperties = ['/^_/' => ['type' => 'text']],
         $overlay,
         $scope,
         $relations,
@@ -39,211 +40,282 @@ class Tecnodesign_Schema implements ArrayAccess
         $orderBy,
         $groupBy;
 
-    protected static $meta=array(
-        'database'=>array('type'=>'string'),
-        'className'=>array('type'=>'string'),
-        'tableName'=>array('type'=>'string'),
-        'view'=>array('type'=>'string'),
-        'properties'=>array('type'=>'array'),
-        'patternProperties'=>array('type'=>'array'),
-        'overlay'=>array('type'=>'array'),
-        'scope'=>array('type'=>'array'),
-        'relations'=>array('type'=>'array'),
-        'events'=>array('type'=>'array'),
-        'orderBy'=>array('type'=>'array'),
-        'groupBy'=>array('type'=>'array'),
-        'columns'=>array('alias'=>'properties'),
-        'form'=>array('alias'=>'overlay'),
-    );
+    protected static $meta = [
+        'database' => ['type' => 'string'],
+        'className' => ['type' => 'string'],
+        'tableName' => ['type' => 'string'],
+        'view' => ['type' => 'string'],
+        'properties' => ['type' => 'array'],
+        'patternProperties' => ['type' => 'array'],
+        'overlay' => ['type' => 'array'],
+        'scope' => ['type' => 'array'],
+        'relations' => ['type' => 'array'],
+        'events' => ['type' => 'array'],
+        'orderBy' => ['type' => 'array'],
+        'groupBy' => ['type' => 'array'],
+        'columns' => ['alias' => 'properties'],
+        'form' => ['alias' => 'overlay'],
+    ];
 
-    public function __construct($o=null)
+    public function __construct($default = null)
     {
-        if($o) {
-            if(is_array($o)) static::apply($this, $o, static::$meta);
+        if ($default && is_array($default)) {
+            static::apply($this, $default, static::$meta);
         }
     }
 
-    public static function apply($Model, $values, $meta=null)
+    /**
+     * @param mixed $model
+     * @param array $values
+     * @param array $metadata
+     * @return array|bool|Tecnodesign_Model
+     * @throws Tecnodesign_Exception
+     */
+    public static function apply($model, $values, $metadata = null)
     {
-        if(is_object($Model)) {
-            if(!$meta && ($Model instanceof Tecnodesign_Model)) $meta = $Model::$schema['columns'];
-        } else if(is_array($Model)) {
-            $arr = $Model;
-            $Model = false;
+        if (is_object($model)) {
+            if ($metadata === null && ($model instanceof Tecnodesign_Model)) {
+                $metadata = $model::$schema['columns'];
+            }
+            $arr = null;
+        } elseif (is_array($model)) {
+            $arr = $model;
+            $model = false;
         } else {
-            $Model = false;
+            $model = false;
             $arr = array();
         }
 
-        foreach($values as $name=>$value) {
-            if($meta) {
+        if (!is_array($metadata)) {
+            throw new \InvalidArgumentException('$metadata must be an array');
+        }
+
+        foreach ($values as $name => $value) {
+            if ($metadata) {
                 $i = 10;
-                while(isset($meta[$name]['alias']) && $i--) {
-                    $name = $meta[$name]['alias'];
+                while (isset($metadata[$name]['alias']) && $i--) {
+                    $name = $metadata[$name]['alias'];
                 }
                 unset($i);
-                if(isset($meta[$name])) {
-                    $value = static::validateProperty($meta[$name], $value, $name);
+                if (isset($metadata[$name])) {
+                    $value = static::validateProperty($metadata[$name], $value, $name);
                 }
             } else {
                 unset($name, $value);
                 continue;
             }
-            if($Model) $Model->$name = $value;
-            else if($arr) $arr[$name] = $value;
+
+            if ($model !== false) {
+                $model->$name = $value;
+            } elseif ($arr) {
+                $arr[$name] = $value;
+            }
+
+            /**
+             * @todo necessary for PHP < 7
+             */
             unset($name, $value);
         }
 
-        return ($Model)?($Model):($arr);
+        return $model ?: $arr;
     }
 
-    public static function validateProperty($def, $value, $name=null)
+    /**
+     * @param array $definition
+     * @param mixed $value
+     * @param string $label
+     * @return false|int|string
+     * @throws Tecnodesign_Exception
+     */
+    public static function validateProperty($definition, $value, $label = null)
     {
-        if(!isset($def['type']) || $def['type']=='string') {
-            if(is_array($value)) {
-                if(isset($def['serialize'])) {
-                    $value = tdz::serialize($value, $def['serialize']);
+        $label = isset($definition['label'])
+            ? $definition['label']
+            : tdz::t(ucwords(str_replace('_', ' ', $label)), 'labels');
+
+        $label = sprintf(tdz::t(static::$errorInvalid, 'exception'), $label);
+
+        if (!isset($definition['type']) || $definition['type'] === 'string') {
+            if (is_array($value)) {
+                if (isset($definition['serialize'])) {
+                    $value = tdz::serialize($value, $definition['serialize']);
                 } else {
                     $value = tdz::implode($value);
                 }
             } else {
-                $value = @(string) $value;
+                $value = (string)$value;
             }
-            if (isset($def['size']) && $def['size'] && strlen($value) > $def['size']) {
-                $value = mb_strimwidth($value, 0, (int)$def['size'], '', 'UTF-8');
+
+            if (isset($definition['size']) && $definition['size'] && strlen($value) > $definition['size']) {
+                $value = mb_strimwidth($value, 0, (int)$definition['size'], '', 'UTF-8');
             }
-        } else if($def['type']=='int') {
-            if (!is_numeric($value) && $value!='') {
-                $label = (isset($def['label']))?($def['label']):(tdz::t(ucwords(str_replace('_', ' ', $name)), 'labels'));
-                throw new Tecnodesign_Exception(sprintf(tdz::t(static::$errorInvalid, 'exception'), $label).' '.tdz::t(static::$errorInteger, 'exception'));
+
+        } elseif ($definition['type'] === 'int') {
+            if (!is_numeric($value) && $value !== '') {
+                throw new Tecnodesign_Exception($label . ' ' . tdz::t(static::$errorInteger, 'exception'));
             }
-            if(!tdz::isempty($value)) $value = (int) $value;
-            if (isset($def['min']) && $value < $def['min']) {
-                $label = (isset($def['label']))?($def['label']):(tdz::t(ucwords(str_replace('_', ' ', $name)), 'labels'));
-                throw new Tecnodesign_Exception(sprintf(tdz::t(static::$errorInvalid, 'exception'), $label).' '.sprintf(tdz::t(static::$errorMinorThan, 'exception'), $value, $def['min']));
-            } else if (isset($def['max']) && $value > $def['max']) {
-                $label = (isset($def['label']))?($def['label']):(tdz::t(ucwords(str_replace('_', ' ', $name)), 'labels'));
-                throw new Tecnodesign_Exception(sprintf(tdz::t(static::$errorInvalid, 'exception'), $label).' '.sprintf(tdz::t(static::$errorGreaterThan, 'exception'), $value, $def['max']));
+
+            if (!tdz::isempty($value)) {
+                $value = (int)$value;
             }
-        } else if(substr($def['type'], 0,4)=='date') {
-            if($value) {
+
+            if (isset($definition['min']) && $value < $definition['min']) {
+                throw new Tecnodesign_Exception(
+                    sprintf(tdz::t(static::$errorInvalid, 'exception'), $label)
+                    . ' '
+                    . sprintf(tdz::t(static::$errorMinorThan, 'exception'), $value, $definition['min']));
+            }
+
+            if (isset($definition['max']) && $value > $definition['max']) {
+                throw new Tecnodesign_Exception($label . ' '
+                    . sprintf(tdz::t(static::$errorGreaterThan, 'exception'), $value, $definition['max']));
+            }
+
+        } elseif (strpos($definition['type'], 'date') === 0) {
+            if ($value) {
                 $time = false;
                 $d = false;
-                if(!preg_match('/^[0-9]{4}\-[0-9]{2}\-[0-9]{2}/', $value)) {
+                if (!preg_match('/^\d{4}\-\d{2}\-\d{2}/', $value)) {
                     $format = tdz::$dateFormat;
-                    if (substr($def['type'], 0, 8)=='datetime') {
-                        $format .= ' '.tdz::$timeFormat;
+                    if (strpos($definition['type'], 'datetime') === 0) {
+                        $format .= ' ' . tdz::$timeFormat;
                         $time = true;
                     }
                     $d = date_parse_from_format($format, $value);
                 }
-                if($d && !isset($d['errors'])) {
+
+                if ($d && !isset($d['errors'])) {
                     $value = str_pad((int)$d['year'], 4, '0', STR_PAD_LEFT)
                         . '-' . str_pad((int)$d['month'], 2, '0', STR_PAD_LEFT)
                         . '-' . str_pad((int)$d['day'], 2, '0', STR_PAD_LEFT);
-                    if($time) {
-                        $value .= ' '.str_pad((int)$d['hour'], 2, '0', STR_PAD_LEFT)
+                    if ($time) {
+                        $value .= ' ' . str_pad((int)$d['hour'], 2, '0', STR_PAD_LEFT)
                             . ':' . str_pad((int)$d['minute'], 2, '0', STR_PAD_LEFT)
                             . ':' . str_pad((int)$d['second'], 2, '0', STR_PAD_LEFT);
                     }
-                } else if($d = strtotime($value)) {
-                    $value = (substr($def['type'], 0, 8)=='datetime')?(date('Y-m-d H:i:s', $d)):(date('Y-m-d', $d));
+                } elseif ($d = strtotime($value)) {
+                    $value = (strpos($definition['type'], 'datetime') === 0)
+                        ? date('Y-m-d H:i:s', $d)
+                        : date('Y-m-d', $d);
                 }
             }
         }
+
         // @TODO: write other validators
-        if(($value==='' || $value===null) && isset($def['default'])) {
-            $value = $def['default'];
+        if (($value === '' || $value === null) && isset($definition['default'])) {
+            $value = $definition['default'];
         }
-        if (($value==='' || $value===null) && isset($def['null']) && !$def['null']) {
-            $label = (isset($def['label']))?($def['label']):(tdz::t(ucwords(str_replace('_', ' ', $name)), 'labels'));
+
+        if (($value === '' || $value === null) && isset($definition['null']) && !$definition['null']) {
             throw new Tecnodesign_Exception(sprintf(tdz::t(static::$errorMandatory, 'exception'), $label));
-        } else if($value==='') {
+        }
+
+        if ($value === '') {
             $value = false;
         }
+
         return $value;
     }
 
-    public function uid($expand=false)
+    public function uid($expand = false)
     {
         //return $this->properties(null, false, array('primary'=>true), $expand);
         $r = array();
-        foreach($this->properties as $n=>$d) {
-            if($d && isset($d['primary']) && $d['primary']) {
-                if($expand) $r[$n]=$d;
-                else $r[] = $n;
+        foreach ($this->properties as $n => $d) {
+            if ($d && isset($d['primary']) && $d['primary']) {
+                if ($expand) {
+                    $r[$n] = $d;
+                } else {
+                    $r[] = $n;
+                }
             }
             unset($n, $d);
         }
         return $r;
     }
 
-    public function properties($scope=null, $overlay=false, $filter=null, $expand=10, $add=array())
+    public function properties($scope = null, $overlay = false, $filter = null, $expand = 10, $add = array())
     {
         $R = array();
-        if(is_string($scope)) {
-            if(isset($this->scope[$scope])) $scope = $this->scope[$scope];
-            else return $R;
-        } else if(!$scope) {
-            $scope = $this->properties;
+        if (is_string($scope)) {
+            if (isset($this->scope[$scope])) {
+                $scope = $this->scope[$scope];
+            } else {
+                return $R;
+            }
+        } else {
+            if (!$scope) {
+                $scope = $this->properties;
+            }
         }
-        if(!$scope || !is_array($scope)) return $R;
+        if (!$scope || !is_array($scope)) {
+            return $R;
+        }
 
-        if(!is_array($add)) $add=array();
-        if(isset($scope['__default'])) {
+        if (!is_array($add)) {
+            $add = array();
+        }
+        if (isset($scope['__default'])) {
             $add = $scope['__default'] + $add;
             unset($scope['__default']);
         }
-        foreach($scope as $n=>$def) {
+        foreach ($scope as $n => $def) {
             $base = $add;
             $ref = $this;
 
-            if(is_string($def)) {
-                if(preg_match('/^([a-z0-9\-\_]+)::([a-z0-9\-\_\,]+)(:[a-z0-9\-\_\,\!]+)?$/i', $def, $m)) {
-                    if(isset($m[3])) {
-                        if(!isset($U)) $U=tdz::getUser();
-                        if(!$U || !$U->hasCredential(preg_split('/[\,\:]+/', $m[3], null, PREG_SPLIT_NO_EMPTY),false)) {
+            if (is_string($def)) {
+                if (preg_match('/^([a-z0-9\-\_]+)::([a-z0-9\-\_\,]+)(:[a-z0-9\-\_\,\!]+)?$/i', $def, $m)) {
+                    if (isset($m[3])) {
+                        if (!isset($U)) {
+                            $U = tdz::getUser();
+                        }
+                        if (!$U || !$U->hasCredential(preg_split('/[\,\:]+/', $m[3], null, PREG_SPLIT_NO_EMPTY),
+                                false)) {
                             continue;
                         }
                     }
-                    if($m[1]=='scope' && $expand) {
+                    if ($m[1] == 'scope' && $expand) {
                         $R = array_merge($R, $ref->properties($m[2], $overlay, $filter, $expand--, $add));
                     }
                     unset($base, $n, $def);
                     continue;
-                } else if(substr($def, 0, 2)=='--' && substr($def, -2)=='--') {
-                    $add['fieldset'] = substr($def, 2, strlen($def)-4);
-                    unset($base, $n, $def);
-                    continue;
                 } else {
-                    $base['bind'] = $def;
-                    if(preg_match('/^([^\s\`]+)(\s+as)?\s+[a-zA-Z0-9\_\-]+$/', $def, $m)) $def = $m[1];
-
-                    while(strpos($def, '.')!==false) {
-                        list($rn,$def)=explode('.', $def, 2);
-                        if(isset($ref->relations[$rn])) {
-                            $cn = (isset($ref->relations[$rn]['className']))?($ref->relations[$rn]['className']):($rn);
-                            $ref = $cn::schema($cn, array('className'=>$cn), true);
-                        } else {
-                            $def = null;
-                            break;
+                    if (substr($def, 0, 2) == '--' && substr($def, -2) == '--') {
+                        $add['fieldset'] = substr($def, 2, strlen($def) - 4);
+                        unset($base, $n, $def);
+                        continue;
+                    } else {
+                        $base['bind'] = $def;
+                        if (preg_match('/^([^\s\`]+)(\s+as)?\s+[a-zA-Z0-9\_\-]+$/', $def, $m)) {
+                            $def = $m[1];
                         }
-                    }
-                    if($def!==null && isset($ref->properties[$def])) {
-                        $def = $ref->properties[$def];
-                        $i=10;
-                        while(isset($def['alias'])) {
-                            if(!isset($ref->properties[$def['alias']])) {
-                                $def = array();
-                                break;
+
+                        while (strpos($def, '.') !== false) {
+                            list($rn, $def) = explode('.', $def, 2);
+                            if (isset($ref->relations[$rn])) {
+                                $cn = (isset($ref->relations[$rn]['className'])) ? ($ref->relations[$rn]['className']) : ($rn);
+                                $ref = $cn::schema($cn, array('className' => $cn), true);
                             } else {
-                                $def = $def['alias'];
-                                $i--;
+                                $def = null;
+                                break;
                             }
                         }
-                        unset($i);
-                    } else {
-                        $def = array('type'=>'string','null'=>true);
+                        if ($def !== null && isset($ref->properties[$def])) {
+                            $def = $ref->properties[$def];
+                            $i = 10;
+                            while (isset($def['alias'])) {
+                                if (!isset($ref->properties[$def['alias']])) {
+                                    $def = array();
+                                    break;
+                                } else {
+                                    $def = $def['alias'];
+                                    $i--;
+                                }
+                            }
+                            unset($i);
+                        } else {
+                            $def = array('type' => 'string', 'null' => true);
+                        }
                     }
                 }
             }
@@ -255,56 +327,80 @@ class Tecnodesign_Schema implements ArrayAccess
             else if(isset($base['bind'])) $n = $base['bind'];
             else if(is_string($def)) $n = $def;
             */
-            if(is_int($n)) {
-                if(is_array($def) && isset($def['bind'])) $n = $def['bind'];
-                else if(isset($base['bind'])) $n = $base['bind'];
-                else if(is_string($def)) $n = $def;
+            if (is_int($n)) {
+                if (is_array($def) && isset($def['bind'])) {
+                    $n = $def['bind'];
+                } else {
+                    if (isset($base['bind'])) {
+                        $n = $base['bind'];
+                    } else {
+                        if (is_string($def)) {
+                            $n = $def;
+                        }
+                    }
+                }
             }
 
-            if(strpos($n, ' ')) $n = substr($n, strrpos($n, ' ')+1);
+            if (strpos($n, ' ')) {
+                $n = substr($n, strrpos($n, ' ') + 1);
+            }
 
-            if($ref->patternProperties) {
-                foreach($ref->patternProperties as $re=>$addDef) {
-                    if(preg_match($re, $n)) {
-                        if(!is_string($def)) $def = $addDef;
-                        else $base += $addDef;
+            if ($ref->patternProperties) {
+                foreach ($ref->patternProperties as $re => $addDef) {
+                    if (preg_match($re, $n)) {
+                        if (!is_string($def)) {
+                            $def = $addDef;
+                        } else {
+                            $base += $addDef;
+                        }
                     }
                     unset($re, $addDef);
                 }
             }
 
-            if(is_array($def)) {
-                if($base) $def += $base;
-                if($overlay && isset($def['bind'])) {
-                    if(isset($ref->overlay[$n])) {
+            if (is_array($def)) {
+                if ($base) {
+                    $def += $base;
+                }
+                if ($overlay && isset($def['bind'])) {
+                    if (isset($ref->overlay[$n])) {
                         $def = $ref->overlay[$n] + $def;
                     }
                 }
-                if(isset($def['credential'])) {
-                    if(!isset($U)) $U=tdz::getUser();
-                    if(!$U || !$U->hasCredentials($def['credential'], false)) $def = null;
+                if (isset($def['credential'])) {
+                    if (!isset($U)) {
+                        $U = tdz::getUser();
+                    }
+                    if (!$U || !$U->hasCredentials($def['credential'], false)) {
+                        $def = null;
+                    }
                 }
 
-                if($def) {
-                    if($filter) {
-                        foreach($filter as $p=>$value) {
-                            if(!isset($def[$p]) || $def[$p]!=$value || (is_array($value) && !in_array($def[$p], $value))) {
+                if ($def) {
+                    if ($filter) {
+                        foreach ($filter as $p => $value) {
+                            if (!isset($def[$p]) || $def[$p] != $value || (is_array($value) && !in_array($def[$p],
+                                        $value))) {
                                 $def = null;
                                 break;
                             }
                         }
                     }
 
-                    if($def) $R[$n] = $def;
+                    if ($def) {
+                        $R[$n] = $def;
+                    }
                 }
             }
             unset($base, $n, $def, $ref);
         }
 
-        if($R && $expand===false) {
+        if ($R && $expand === false) {
             $r = array();
-            foreach($R as $n=>$d) {
-                if(isset($d['bind'])) $r[$n]=$d['bind'];
+            foreach ($R as $n => $d) {
+                if (isset($d['bind'])) {
+                    $r[$n] = $d['bind'];
+                }
                 unset($n, $d);
             }
             return $r;
@@ -312,63 +408,72 @@ class Tecnodesign_Schema implements ArrayAccess
         return $R;
     }
 
-    public function toJsonSchema($scope=null, &$R=array())
+    public function toJsonSchema($scope = null, &$R = array())
     {
         // available scopes might form full definitions (?)
         $fo = $this->properties($scope);
         $cn = $this->className;
 
-        if(!is_array($R)) {
+        if (!is_array($R)) {
             $R += array(
-                '$schema'=>'http://json-schema.org/draft-07/schema#',
-                '$id'=>tdz::buildUrl($this->link().$qs),
-                'title'=>(isset($this->text['title']))?($this->text['title']):($cn::label()),
+                '$schema' => 'http://json-schema.org/draft-07/schema#',
+                '$id' => tdz::buildUrl($this->link() . $qs),
+                'title' => (isset($this->text['title'])) ? ($this->text['title']) : ($cn::label()),
             );
         }
-        $R+=array('type'=>'object','properties'=>array(), 'required'=>array());
+        $R += array('type' => 'object', 'properties' => array(), 'required' => array());
 
         $types = array(
-            'bool'=>'boolean',
-            'array'=>'object',
-            'form'=>'object',
-            'integer'=>'integer',
-            'number'=>'number',
+            'bool' => 'boolean',
+            'array' => 'object',
+            'form' => 'object',
+            'integer' => 'integer',
+            'number' => 'number',
         );
 
-        $properties=array(
-            'label'=>'title',
-            'description'=>'description',
-            'placeholder'=>'description',
-            'default'=>'default',
-            'readonly'=>'readOnly',
+        $properties = array(
+            'label' => 'title',
+            'description' => 'description',
+            'placeholder' => 'description',
+            'default' => 'default',
+            'readonly' => 'readOnly',
         );
 
-        foreach($fo as $fn=>$fd) {
-            $bind = (isset($fd['bind']))?($fd['bind']):($fn);
-            if($p=strrpos($bind, ' ')) $bind = substr($bind, $p+1);
-            if(isset($cn::$schema['columns'][$bind])) $fd+=$cn::$schema['columns'][$bind];
-            $type = (isset($fd['type']) && isset($types[$fd['type']]))?($types[$fd['type']]):('string');
-            if(isset($fd['multiple']) && $fd['multiple']) {
-                if(isset($fd['type']) && $fd['type']=='array') $type = 'array'; 
-                else $type = array($type, 'array');
+        foreach ($fo as $fn => $fd) {
+            $bind = (isset($fd['bind'])) ? ($fd['bind']) : ($fn);
+            if ($p = strrpos($bind, ' ')) {
+                $bind = substr($bind, $p + 1);
             }
-            $R['properties'][$fn]=array(
-                'type'=>$type,
+            if (isset($cn::$schema['columns'][$bind])) {
+                $fd += $cn::$schema['columns'][$bind];
+            }
+            $type = (isset($fd['type']) && isset($types[$fd['type']])) ? ($types[$fd['type']]) : ('string');
+            if (isset($fd['multiple']) && $fd['multiple']) {
+                if (isset($fd['type']) && $fd['type'] == 'array') {
+                    $type = 'array';
+                } else {
+                    $type = array($type, 'array');
+                }
+            }
+            $R['properties'][$fn] = array(
+                'type' => $type,
             );
 
-            foreach($properties as $n=>$v) {
-                if(isset($fd[$n]) && !isset($R['properties'][$fn][$n])) {
+            foreach ($properties as $n => $v) {
+                if (isset($fd[$n]) && !isset($R['properties'][$fn][$n])) {
                     $R['properties'][$fn][$n] = $fd[$n];
                 }
                 unset($n, $v);
             }
-            if(isset($fd['null']) && !$fd['null']) $R['required'][] = $fn;
+            if (isset($fd['null']) && !$fd['null']) {
+                $R['required'][] = $fn;
+            }
 
-            if(!is_array($type) && method_exists($this, $m='_jsonSchema'.ucfirst($type))) {
+            if (!is_array($type) && method_exists($this, $m = '_jsonSchema' . ucfirst($type))) {
                 $this->$m($fd, $R['properties'][$fn]);
             }
 
-            if(isset($fd['choices']) && is_array($fd['choices'])) {
+            if (isset($fd['choices']) && is_array($fd['choices'])) {
                 $R['properties'][$fn]['enum'] = array_keys($fd['choices']);
             }
         }
@@ -376,54 +481,68 @@ class Tecnodesign_Schema implements ArrayAccess
         return $R;
     }
 
-    protected function _jsonSchemaInteger($fd, &$R=array())
+    protected function _jsonSchemaInteger($fd, &$R = array())
     {
         return $this->_jsonSchemaNumber($fd, $R);
     }
 
-    protected function _jsonSchemaNumber($fd, &$R=array())
+    protected function _jsonSchemaNumber($fd, &$R = array())
     {
-        if(isset($fd['min_size'])) $R['minimum'] = $fd['min_size'];
-        if(isset($fd['size'])) $R['maximum'] = $fd['size'];
+        if (isset($fd['min_size'])) {
+            $R['minimum'] = $fd['min_size'];
+        }
+        if (isset($fd['size'])) {
+            $R['maximum'] = $fd['size'];
+        }
         // exclusiveMaximum
         // exclusiveMinimum
         // multipleOf
     }
 
-    protected function _jsonSchemaString($fd, &$R=array())
+    protected function _jsonSchemaString($fd, &$R = array())
     {
-        if(isset($fd['min_size'])) $R['minLength'] = $fd['min_size'];
-        if(isset($fd['size'])) $R['maxLength'] = $fd['size'];
+        if (isset($fd['min_size'])) {
+            $R['minLength'] = $fd['min_size'];
+        }
+        if (isset($fd['size'])) {
+            $R['maxLength'] = $fd['size'];
+        }
         // pattern
 
-        static $format=array(
-            'date'=>'date',
-            'datetime'=>'date-time',
-            'time'=>'time',
-            'email'=>'email',
-            'ipv4'=>'ipv4',
-            'ipv6'=>'ipv6',
-            'url'=>'uri',
+        static $format = array(
+            'date' => 'date',
+            'datetime' => 'date-time',
+            'time' => 'time',
+            'email' => 'email',
+            'ipv4' => 'ipv4',
+            'ipv6' => 'ipv6',
+            'url' => 'uri',
         );
-        if(isset($fd['type']) && isset($format[$fd['type']])) $R['format'] = $format[$fd['type']];
+        if (isset($fd['type']) && isset($format[$fd['type']])) {
+            $R['format'] = $format[$fd['type']];
+        }
     }
 
-    protected static function _jsonSchemaArray($fd, &$R=array())
+    protected static function _jsonSchemaArray($fd, &$R = array())
     {
-        if(isset($fd['scope'])) {
+        if (isset($fd['scope'])) {
             $R['items'] = $this->toJsonSchema($fd['scope'], $R);
         }
         // additionalItems
         // pattern
-        if(isset($fd['min_size'])) $R['minItems'] = $fd['min_size'];
-        if(isset($fd['size'])) $R['maxItems'] = $fd['size'];
+        if (isset($fd['min_size'])) {
+            $R['minItems'] = $fd['min_size'];
+        }
+        if (isset($fd['size'])) {
+            $R['maxItems'] = $fd['size'];
+        }
         // uniqueItems
         // contains
     }
 
-    protected static function _jsonSchemaObject($fd, &$R=array())
+    protected static function _jsonSchemaObject($fd, &$R = array())
     {
-        if(isset($fd['scope'])) {
+        if (isset($fd['scope'])) {
             $R = $this->toJsonSchema($fd['scope'], $R);
         }
         // maxProperties
@@ -443,32 +562,45 @@ class Tecnodesign_Schema implements ArrayAccess
      */
     public function &offsetGet($name)
     {
-        if(isset(static::$meta[$name]['alias'])) $name = static::$meta[$name]['alias'];
-        if (method_exists($this, $m='get'.ucfirst(tdz::camelize($name)))) {
+        if (isset(static::$meta[$name]['alias'])) {
+            $name = static::$meta[$name]['alias'];
+        }
+        if (method_exists($this, $m = 'get' . ucfirst(tdz::camelize($name)))) {
             return $this->$m();
-        } else if (isset($this->$name)) {
-            return $this->$name;
+        } else {
+            if (isset($this->$name)) {
+                return $this->$name;
+            }
         }
         return null;
     }
+
     /**
      * ArrayAccess abstract method. Sets parameters to the PDF.
      *
-     * @param string $name  parameter name, should start with lowercase
-     * @param mixed  $value value to be set
-     * 
+     * @param string $name parameter name, should start with lowercase
+     * @param mixed $value value to be set
+     *
      * @return void
      */
     public function offsetSet($name, $value)
     {
-        if(isset(static::$meta[$name]['alias'])) $name = static::$meta[$name]['alias'];
-        if (method_exists($this, $m='set'.tdz::camelize($name))) {
+        if (isset(static::$meta[$name]['alias'])) {
+            $name = static::$meta[$name]['alias'];
+        }
+        if (method_exists($this, $m = 'set' . tdz::camelize($name))) {
             $this->$m($value);
-        } else if(!property_exists($this, $name)) {
-            throw new Tecnodesign_Exception(array(tdz::t('Column "%s" is not available at %s.','exception'), $name, get_class($this)));
         } else {
-            $this->$name = $value;
-        } 
+            if (!property_exists($this, $name)) {
+                throw new Tecnodesign_Exception(array(
+                    tdz::t('Column "%s" is not available at %s.', 'exception'),
+                    $name,
+                    get_class($this)
+                ));
+            } else {
+                $this->$name = $value;
+            }
+        }
         unset($m);
         return $this;
     }
@@ -482,7 +614,9 @@ class Tecnodesign_Schema implements ArrayAccess
      */
     public function offsetExists($name)
     {
-        if(isset(static::$meta[$name]['alias'])) $name = static::$meta[$name]['alias'];
+        if (isset(static::$meta[$name]['alias'])) {
+            $name = static::$meta[$name]['alias'];
+        }
         return isset($this->$name);
     }
 
@@ -494,7 +628,9 @@ class Tecnodesign_Schema implements ArrayAccess
      */
     public function offsetUnset($name)
     {
-        if(isset(static::$meta[$name]['alias'])) $name = static::$meta[$name]['alias'];
+        if (isset(static::$meta[$name]['alias'])) {
+            $name = static::$meta[$name]['alias'];
+        }
         return $this->offsetSet($name, null);
     }
 }
