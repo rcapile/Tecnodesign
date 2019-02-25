@@ -59,13 +59,20 @@ class Tecnodesign_Schema implements ArrayAccess
 
     public function __construct($default = null)
     {
-        if ($default && is_array($default)) {
-            static::apply($this, $default, static::$meta);
+        if ($default !== null) {
+            if (is_array($default)) {
+                static::apply($this, $default, static::$meta);
+            } elseif ($default instanceof Tecnodesign_Model) {
+                static::apply($default);
+            } else {
+                throw new \InvalidArgumentException('$default invalid');
+            }
         }
+
     }
 
     /**
-     * @param mixed $model
+     * @param Tecnodesign_Model|array $model
      * @param array $values
      * @param array $metadata
      * @return array|bool|Tecnodesign_Model
@@ -77,13 +84,14 @@ class Tecnodesign_Schema implements ArrayAccess
             if ($metadata === null && ($model instanceof Tecnodesign_Model)) {
                 $metadata = $model::$schema['columns'];
             }
-            $arr = null;
+            $arr = [];
+            $hasModel = true;
         } elseif (is_array($model)) {
             $arr = $model;
-            $model = false;
+            $hasModel = false;
         } else {
-            $model = false;
-            $arr = array();
+            $hasModel = false;
+            $arr = [];
         }
 
         if (!is_array($metadata)) {
@@ -117,7 +125,7 @@ class Tecnodesign_Schema implements ArrayAccess
             unset($name, $value);
         }
 
-        return $model ?: $arr;
+        return $hasModel ? $model : $arr;
     }
 
     /**
