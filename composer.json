@@ -28,7 +28,8 @@
         "phpdocumentor/reflection-docblock": "2.0.5",
         "mustangostang/spyc": "^0.6.2",
         "phpunit/php-code-coverage": "^2.2",
-        "phpmd/phpmd": "^2.6"
+        "phpmd/phpmd": "^2.6",
+        "swaggest/json-schema": "^0.12.7"
     },
     "scripts": {
         "test": "vendor/bin/phpunit --configuration=test/phpunit.xml"
