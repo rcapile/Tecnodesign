@@ -22,45 +22,75 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
         $schemaMetadata = $class->getStaticProperties()['meta'];
 
         foreach (['TecnodesignTest\\SimpleModel', 'TecnodesignTest\\ComplexModel'] as $className) {
-            $originalSchema = $className::$schema;
-            $schema = new \Tecnodesign_Schema(new $className());
-            foreach ($schemaMetadata as $key => $definition) {
-                $this->assertTrue(isset($schema[$key]), "\$schema has $key");
-                if (array_key_exists($key, $originalSchema)) {
-                    // There should be not alias
-                    if ($definition['alias']) {
-                        $this->assertNull($schema[$key], 'Alias should be null');
-                        $key = $definition['alias'];
-                    }
-                    $this->assertEquals($originalSchema[$key], $schema[$key],
-                        "\$schema $key is equal $className::\$schema");
+            $classSchema = $className::$schema;
+            $loadedSchema = new \Tecnodesign_Schema(new $className());
 
+            // Checks for who has an alias
+            $definedAlias = [];
+            foreach ($schemaMetadata as $key => $definition) {
+                if ($definition['alias']) {
+                    $definedAlias[$definition['alias']] = $key;
+                }
+            }
+
+            foreach ($schemaMetadata as $key => $definition) {
+                if (array_key_exists($key, $classSchema)) {
+                    if ($definition['alias']) {
+                        $this->assertNotNull($loadedSchema[$key], "$className::\$schema $key alias should exist");
+                        $this->assertNotNull($loadedSchema[$definition['alias']], "$className::\$schema $key alias {$definition['alias']} should exist");
+                        $this->assertEquals($loadedSchema[$key], $loadedSchema[$definition['alias']], "$className::\$schema $key and alias {$definition['alias']} should be equals");
+                        continue;
+                    }
+
+                    $this->assertTrue(isset($loadedSchema[$key]), "$className::\$schema should has $key");
+                    $this->assertEquals($classSchema[$key], $loadedSchema[$key],
+                        "\$schema $key is equal $className::\$schema");
                 } elseif ($key === 'patternProperties') {
-                    $this->assertEquals($schema[$key], ['/^_/' => ['type' => 'text']],
+                    $this->assertEquals($loadedSchema[$key], ['/^_/' => ['type' => 'text']],
                         "\$schema $key has default value");
                 } else {
-                    $this->assertNull($schema[$key], "\$schema $key is null");
+                    // If it has an alias, the asserts are made above
+                    if ($definedAlias[$key]) {
+                        continue;
+                    }
+                    $this->assertNull($loadedSchema[$key], "\$schema $key is null");
                 }
             }
         }
     }
 
-    public function testToJson()
+    public function testToJsonSchema()
     {
         $class = new \ReflectionClass('Tecnodesign_Schema');
         //$schemaMetadata = $class->getStaticPropertyValue('meta');
         $schemaMetadata = $class->getStaticProperties()['meta'];
 
+        // remove the alias
+        foreach ($schemaMetadata as $key => $definition) {
+            if ($definition['alias']) {
+                unset($schemaMetadata[$key]);
+            }
+        }
+
+        $validMetadataKeys = array_merge(['$schema', '$id'], array_keys($schemaMetadata));
         foreach (['TecnodesignTest\\SimpleModel', 'TecnodesignTest\\ComplexModel'] as $className) {
-            $schema = new \Tecnodesign_Schema(new $className());
-            $json = $schema->toJson();
-            $jsonSchema = $schema->getJsonSchema();
+            $loadedSchema = new \Tecnodesign_Schema(new $className());
 
-            $this->assertInternalType('string', $json);
+            $jsonSchema = $loadedSchema->toJson();
+            $jsonSchemaValidator = $loadedSchema->getJsonSchema();
+
             $this->assertInternalType('string', $jsonSchema);
+            $this->assertInternalType('string', $jsonSchemaValidator);
 
-            $schemaValidate = SwaggestSchema::import(json_decode($jsonSchema));
-            $schemaValidate->in((object)json_decode($json, JSON_OBJECT_AS_ARRAY));
+            $jsonSchemaValidator = json_decode($jsonSchemaValidator);
+            $jsonSchema = (object)json_decode($jsonSchema, JSON_OBJECT_AS_ARRAY);
+
+            // There can be only allowed metadata keys
+            $diff = array_diff(array_keys((array)$jsonSchema), $validMetadataKeys);
+            $this->assertEmpty($diff);
+
+            $schemaValidate = SwaggestSchema::import($jsonSchemaValidator);
+            $schemaValidate->in($jsonSchema);
         }
     }
 }

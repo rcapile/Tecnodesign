@@ -684,9 +684,9 @@ class Tecnodesign_Schema implements ArrayAccess
             $name = static::$meta[$name]['alias'];
         }
 
-        // return isset($this->$name);
+        return isset($this->$name);
         // It should use property_exists because array_key_exists will fail with null values
-        return property_exists($this, $name);
+        //return property_exists($this, $name);
     }
 
     /**
@@ -709,8 +709,12 @@ class Tecnodesign_Schema implements ArrayAccess
     private function loadSchema($schema)
     {
         foreach (self::$meta as $key => $definition) {
+            $correctKey = $key;
+            if (isset(static::$meta[$correctKey]['alias'])) {
+                $correctKey = static::$meta[$correctKey]['alias'];
+            }
             if (isset($schema[$key])) {
-                $this->$key = $schema[$key];
+                $this->$correctKey = $schema[$key];
             }
         }
     }
