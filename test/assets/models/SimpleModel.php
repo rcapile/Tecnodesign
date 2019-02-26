@@ -1,34 +1,35 @@
 <?php
+namespace TecnodesignTest;
 
 class SimpleModel extends \Tecnodesign_Model
 {
-    public static $schema = array(
+    public static $schema = [
         'database' => 'firstwww',
         'tableName' => 'countries',
-        'className' => 'Tecnodesign\\Countries',
-        'columns' => array(
-            'id' => array('type' => 'string', 'size' => '2', 'min-size' => '2', 'null' => false, 'primary' => true,),
-            'country' => array('type' => 'string', 'size' => '100', 'null' => false,),
-            'region' => array('type' => 'string', 'size' => '100', 'null' => false,),
-        ),
-        'relations' => array(
-            'CountryIso' => array(
+        'className' => 'TecnodesignTest\\SimpleModel',
+        'columns' => [
+            'id' => ['type' => 'string', 'size' => '2', 'min-size' => '2', 'null' => false, 'primary' => true,],
+            'country' => ['type' => 'string', 'size' => '100', 'null' => false,],
+            'region' => ['type' => 'string', 'size' => '100', 'null' => false,],
+        ],
+        'relations' => [
+            'CountryIso' => [
                 'local' => 'id',
                 'foreign' => 'id',
                 'type' => 'one',
                 'className' => 'Tecnodesign\\CountryIso',
-            ),
-        ),
-        'scope' => array(
-            'string' => array('country'),
-            'choices' => array('country'),
-        ),
-        'events' => array(),
-        'order' => array('country' => 'asc'),
-        'form' => array(
-            'id' => array('bind' => 'id',),
-            'country' => array('bind' => 'country',),
-            'region' => array('bind' => 'region',),
-        ),
-    );
+            ],
+        ],
+        'scope' => [
+            'string' => ['country'],
+            'choices' => ['country'],
+        ],
+        'events' => [],
+        'order' => ['country' => 'asc'],
+        'form' => [
+            'id' => ['bind' => 'id',],
+            'country' => ['bind' => 'country',],
+            'region' => ['bind' => 'region',],
+        ],
+    ];
 }

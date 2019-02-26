@@ -7,6 +7,7 @@
  *
  * PHP version 5.4
  *
+ * @property  text
  * @category  Ui
  * @package   Tecnodesign
  * @author    Guilherme Capilé, Tecnodesign <ti@tecnodz.com>
@@ -489,6 +490,61 @@ class Tecnodesign_Schema implements ArrayAccess
         return $R;
     }
 
+    public function getJsonSchema()
+    {
+        $currentClass = new $this->className;
+        if (!$currentClass instanceof Tecnodesign_Model) {
+            throw new \RuntimeException("$currentClass must be Tecnodesign_Model");
+        }
+
+        $schema = [
+            '$schema' => 'http://json-schema.org/draft-07/schema',
+            '$id' => '1234',//tdz::buildUrl($this->link() . $qs),
+            'title' => isset($this->text['title']) ? $this->text['title'] : $currentClass::label(),
+            'type' => 'object',
+            'properties' => [],
+            'required' => [],
+            // 'dependencies' => []
+        ];
+
+        foreach (self::$meta as $key => $definition) {
+            if (isset($definition['alias'])) {
+                $schema['properties'][$key] = ['alias' => $definition['alias']];
+            } else {
+                $schema['properties'][$key] = ['type' => $definition['type']];
+            }
+        }
+
+        return json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    public function toJson()
+    {
+        $currentClass = new $this->className;
+        if (! $currentClass instanceof Tecnodesign_Model) {
+            throw new \RuntimeException("$currentClass must be Tecnodesign_Model");
+        }
+
+        $json = [
+            '$schema' => 'http://json-schema.org/draft-07/schema#',
+            '$id' => '1234',//tdz::buildUrl($this->link() . $qs),
+        ];
+
+        foreach (self::$meta as $key => $definition) {
+            if ($definition['alias']) {
+                continue;
+            }
+
+            if ($this->$key === null) {
+                continue;
+            }
+
+            $json[$key] = $this->$key;
+        }
+
+        return json_encode($json,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+    }
+
     protected function _jsonSchemaInteger($fd, &$R = array())
     {
         return $this->_jsonSchemaNumber($fd, $R);
@@ -601,6 +657,7 @@ class Tecnodesign_Schema implements ArrayAccess
         }
         if (method_exists($this, $m = 'set' . tdz::camelize($name))) {
             $this->$m($value);
+            unset($m);
         } elseif (!property_exists($this, $name)) {
             throw new Tecnodesign_Exception(array(
                 tdz::t('Column "%s" is not available at %s.', 'exception'),
@@ -610,7 +667,6 @@ class Tecnodesign_Schema implements ArrayAccess
         } else {
             $this->$name = $value;
         }
-        unset($m);
 
         return $this;
     }
@@ -627,6 +683,7 @@ class Tecnodesign_Schema implements ArrayAccess
         if (isset(static::$meta[$name]['alias'])) {
             $name = static::$meta[$name]['alias'];
         }
+
         // return isset($this->$name);
         // It should use property_exists because array_key_exists will fail with null values
         return property_exists($this, $name);

@@ -1,11 +1,12 @@
 <?php
+namespace TecnodesignTest;
 
 class ComplexModel extends \Tecnodesign_Model
 {
     public static $schema = [
         'database' => 'firstwww',
         'tableName' => 'teams',
-        'className' => 'Tecnodesign\\ComplexModel',
+        'className' => 'TecnodesignTest\\ComplexModel',
         'columns' => [
             'id' => ['type' => 'int', 'increment' => 'auto', 'null' => false, 'primary' => true,],
             'team_short' => ['type' => 'string', 'size' => '50', 'null' => false,],
