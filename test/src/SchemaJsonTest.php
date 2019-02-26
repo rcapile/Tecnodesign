@@ -28,14 +28,14 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
             // Checks for who has an alias
             $definedAlias = [];
             foreach ($schemaMetadata as $key => $definition) {
-                if ($definition['alias']) {
+                if (isset($definition['alias'])) {
                     $definedAlias[$definition['alias']] = $key;
                 }
             }
 
             foreach ($schemaMetadata as $key => $definition) {
                 if (array_key_exists($key, $classSchema)) {
-                    if ($definition['alias']) {
+                    if (isset($definition['alias'])) {
                         $this->assertNotNull($loadedSchema[$key], "$className::\$schema $key alias should exist");
                         $this->assertNotNull($loadedSchema[$definition['alias']], "$className::\$schema $key alias {$definition['alias']} should exist");
                         $this->assertEquals($loadedSchema[$key], $loadedSchema[$definition['alias']], "$className::\$schema $key and alias {$definition['alias']} should be equals");
@@ -50,9 +50,10 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
                         "\$schema $key has default value");
                 } else {
                     // If it has an alias, the asserts are made above
-                    if ($definedAlias[$key]) {
+                    if (isset($definedAlias[$key])) {
                         continue;
                     }
+                    $value=$loadedSchema[$key];
                     $this->assertNull($loadedSchema[$key], "\$schema $key is null");
                 }
             }
@@ -67,7 +68,7 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
 
         // remove the alias
         foreach ($schemaMetadata as $key => $definition) {
-            if ($definition['alias']) {
+            if (isset($definition['alias'])) {
                 unset($schemaMetadata[$key]);
             }
         }

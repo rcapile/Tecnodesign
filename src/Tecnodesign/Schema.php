@@ -531,7 +531,7 @@ class Tecnodesign_Schema implements ArrayAccess
         ];
 
         foreach (self::$meta as $key => $definition) {
-            if ($definition['alias']) {
+            if (isset($definition['alias'])) {
                 continue;
             }
 
@@ -638,7 +638,12 @@ class Tecnodesign_Schema implements ArrayAccess
             return $this->$name;
         }
 
-        return null;
+        /**
+         * It's silly but PHP 5.4, 5.5 and 5.6 throws a notice:
+         * Only variable references should be returned by reference
+         */
+        $returnNull = null;
+        return $returnNull;
     }
 
     /**

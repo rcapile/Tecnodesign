@@ -4,6 +4,11 @@ Docker Images
 This docker images should be used with PHPStorm or when you want to run a command 
 in a specific php version
 
+To access the shel inside the container
+
+```bash
+docker run --rm -v $(pwd):/opt/project -w /opt/project -it php54 bash
+```
 
 ## Composer 
 
