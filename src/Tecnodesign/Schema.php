@@ -63,7 +63,7 @@ class Tecnodesign_Schema implements ArrayAccess
             if (is_array($default)) {
                 static::apply($this, $default, static::$meta);
             } elseif ($default instanceof Tecnodesign_Model) {
-                static::apply($default);
+                $this->loadSchema($default::$schema);
             } else {
                 throw new \InvalidArgumentException('$default invalid');
             }
@@ -573,13 +573,15 @@ class Tecnodesign_Schema implements ArrayAccess
         if (isset(static::$meta[$name]['alias'])) {
             $name = static::$meta[$name]['alias'];
         }
+
         if (method_exists($this, $m = 'get' . ucfirst(tdz::camelize($name)))) {
             return $this->$m();
-        } else {
-            if (isset($this->$name)) {
-                return $this->$name;
-            }
         }
+
+        if (isset($this->$name)) {
+            return $this->$name;
+        }
+
         return null;
     }
 
@@ -589,7 +591,8 @@ class Tecnodesign_Schema implements ArrayAccess
      * @param string $name parameter name, should start with lowercase
      * @param mixed $value value to be set
      *
-     * @return void
+     * @return Tecnodesign_Schema
+     * @throws Tecnodesign_Exception
      */
     public function offsetSet($name, $value)
     {
@@ -598,18 +601,17 @@ class Tecnodesign_Schema implements ArrayAccess
         }
         if (method_exists($this, $m = 'set' . tdz::camelize($name))) {
             $this->$m($value);
+        } elseif (!property_exists($this, $name)) {
+            throw new Tecnodesign_Exception(array(
+                tdz::t('Column "%s" is not available at %s.', 'exception'),
+                $name,
+                get_class($this)
+            ));
         } else {
-            if (!property_exists($this, $name)) {
-                throw new Tecnodesign_Exception(array(
-                    tdz::t('Column "%s" is not available at %s.', 'exception'),
-                    $name,
-                    get_class($this)
-                ));
-            } else {
-                $this->$name = $value;
-            }
+            $this->$name = $value;
         }
         unset($m);
+
         return $this;
     }
 
@@ -625,7 +627,9 @@ class Tecnodesign_Schema implements ArrayAccess
         if (isset(static::$meta[$name]['alias'])) {
             $name = static::$meta[$name]['alias'];
         }
-        return isset($this->$name);
+        // return isset($this->$name);
+        // It should use property_exists because array_key_exists will fail with null values
+        return property_exists($this, $name);
     }
 
     /**
@@ -633,6 +637,9 @@ class Tecnodesign_Schema implements ArrayAccess
      * to the PDF classes — only unsets values stored in $_vars
      *
      * @param string $name parameter name, should start with lowercase
+     * @return Tecnodesign_Schema
+     *
+     * @throws Tecnodesign_Exception
      */
     public function offsetUnset($name)
     {
@@ -640,5 +647,14 @@ class Tecnodesign_Schema implements ArrayAccess
             $name = static::$meta[$name]['alias'];
         }
         return $this->offsetSet($name, null);
+    }
+
+    private function loadSchema($schema)
+    {
+        foreach (self::$meta as $key => $definition) {
+            if (isset($schema[$key])) {
+                $this->$key = $schema[$key];
+            }
+        }
     }
 }

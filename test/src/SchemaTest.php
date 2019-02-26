@@ -2,7 +2,7 @@
 
 namespace TecnodesignTest;
 
-class Tecnodesign_SchemaTest extends \PHPUnit_Framework_TestCase
+class SchemaTest extends \PHPUnit_Framework_TestCase
 {
 
     public function testConstruct()
