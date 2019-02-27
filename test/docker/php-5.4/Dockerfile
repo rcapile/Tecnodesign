@@ -6,7 +6,7 @@ RUN pecl channel-update pecl.php.net
 RUN pecl install xdebug-2.4.1 yaml-1.3.2
 RUN docker-php-ext-install mbstring
 # PHPStorm cannot find the PHP configuration if this file does not exists
-RUN printf "# Default configuration file\ndisplay_startup_errors = On\nerror_reporting = E_ALL\ndisplay_errors = On" > "/usr/local/etc/php/conf.d/php.ini"
+RUN printf "; Default configuration file\ndisplay_startup_errors = On\nerror_reporting = E_ALL\ndisplay_errors = On" > "/usr/local/etc/php/conf.d/php.ini"
 RUN printf "zend_extension=/usr/local/lib/php/extensions/no-debug-non-zts-20100525/xdebug.so\nxdebug.remote_enable=1\nxdebug.remote_connect_back=1\nxdebug.idekey=PHPSTORM\n" > "/usr/local/etc/php/conf.d/xdebug.ini"
 RUN printf "extension=yaml.so" > "/usr/local/etc/php/conf.d/yaml.ini"
 

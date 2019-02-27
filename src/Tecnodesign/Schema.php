@@ -7,7 +7,6 @@
  *
  * PHP version 5.4
  *
- * @property  text
  * @category  Ui
  * @package   Tecnodesign
  * @author    Guilherme Capilé, Tecnodesign <ti@tecnodz.com>
@@ -33,7 +32,7 @@ class Tecnodesign_Schema implements ArrayAccess
         $tableName,
         $view,
         $properties,
-        $patternProperties = ['/^_/' => ['type' => 'text']],
+        //$patternProperties = ['/^_/' => ['type' => 'text']],
         $overlay,
         $scope,
         $relations,
@@ -47,7 +46,7 @@ class Tecnodesign_Schema implements ArrayAccess
         'tableName' => ['type' => 'string'],
         'view' => ['type' => 'string'],
         'properties' => ['type' => 'array'],
-        'patternProperties' => ['type' => 'array'],
+        //'patternProperties' => ['type' => 'array'],
         'overlay' => ['type' => 'array'],
         'scope' => ['type' => 'array'],
         'relations' => ['type' => 'array'],
@@ -56,6 +55,91 @@ class Tecnodesign_Schema implements ArrayAccess
         'groupBy' => ['type' => 'array'],
         'columns' => ['alias' => 'properties'],
         'form' => ['alias' => 'overlay'],
+    ];
+
+    private static $schemaValidator = [
+        '$schema' => 'http://json-schema.org/draft-07/schema',
+        '$id' => 'http://tecnodz.com/schemas/model.json',
+        'title' => 'Tecnodesign Model Schema',
+        'type' => 'object',
+        'required' => ['className'],
+        'properties' => [
+            'database' => ['type' => 'string'],
+            'className' => ['type' => 'string'],
+            'tableName' => ['type' => 'string'],
+            'view' => ['type' => 'string'],
+            'properties' => [
+                'type' => 'array',
+                'description' => 'Database definition',
+                'items' => [
+                    'type' => 'object',
+                    'required' => ['id', 'type', 'null'],
+                    'additionalProperties' => false,
+                    'properties' => [
+                        'id' => ['type' => 'string'],
+                        'type' => ['type' => 'string', 'enum' => ['int', 'string', 'date', 'datetime']],
+                        'null' => ['type' => 'boolean'],
+                        'default' => ['type' => ['number', 'string']],
+                        'primary' => ['type' => 'boolean', 'enum' => [true]],
+                        'increment' => ['type' => 'string', 'enum' => ['auto']],
+                        'size' => ['type' => ['number', 'string']],
+                        'min-size' => ['type' => ['number', 'string']],
+                        'max' => ['type' => ['number', 'string']],
+                    ],
+                ]
+            ]
+        ],
+        'overlay' => [
+            'type' => 'array',
+            'description' => 'Form definition',
+            'items' => [
+                'type' => 'object',
+                'required' => ['id', 'bind'],
+                'additionalProperties' => false,
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'bind' => ['type' => 'string'],
+                    'type' => ['type' => 'string', 'enum' => ['select', 'radio', 'textarea']],
+                    'null' => ['type' => 'boolean'],
+                    'default' => ['type' => ['number', 'string']],
+                    'primary' => ['type' => 'boolean', 'enum' => [true]],
+                    'increment' => ['type' => 'string', 'enum' => ['auto']],
+                    'size' => ['type' => ['number', 'string']],
+                    'min-size' => ['type' => ['number', 'string']],
+                    'max' => ['type' => ['number', 'string']],
+                ],
+            ],
+        ],
+        'scope' => [
+            'type' => 'array',
+            'description' => 'Scope?',
+            'items' => ['type' => 'object']
+        ],
+        'relations' => [
+            'type' => 'array',
+            'description' => 'Relationships with other tables',
+            'items' => [
+                'type' => 'object',
+                'required' => ['id', 'local', 'foreign', 'type', 'className'],
+                'additionalProperties' => false,
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'local' => ['type' => ['string', 'array']],
+                    'foreign' => ['type' => ['string', 'array']],
+                    'type' => ['type' => 'string', 'enum' => ['one', 'many']],
+                    'className' => ['type' => 'string'],
+                    'params' => ['type' => ['array', 'object']],
+                    'on' => ['type' => 'array'],
+                ],
+            ]
+        ],
+        'events' => [
+            'type' => 'array',
+            'description' => 'Events thrown',
+            'items' => ['type' => 'object']
+        ],
+        'orderBy' => ['type' => 'array'],
+        'groupBy' => ['type' => 'array'],
     ];
 
     public function __construct($default = null)
@@ -490,43 +574,17 @@ class Tecnodesign_Schema implements ArrayAccess
         return $R;
     }
 
-    public function getJsonSchema()
+    /**
+     * @return string
+     */
+    public function getJsonSchemaValidator()
     {
-        $currentClass = new $this->className;
-        if (!$currentClass instanceof Tecnodesign_Model) {
-            throw new \RuntimeException("$currentClass must be Tecnodesign_Model");
-        }
-
-        $schema = [
-            '$schema' => 'http://json-schema.org/draft-07/schema',
-            '$id' => '1234',//tdz::buildUrl($this->link() . $qs),
-            'title' => isset($this->text['title']) ? $this->text['title'] : $currentClass::label(),
-            'type' => 'object',
-            'properties' => [],
-            'required' => [],
-            // 'dependencies' => []
-        ];
-
-        foreach (self::$meta as $key => $definition) {
-            if (!isset($definition['alias'])) {
-                $schema['properties'][$key] = ['type' => $definition['type']];
-            }
-        }
-
-        // properties especifico
-        if (isset($schema['properties']['properties'])) {
-            $schema['properties']['properties']['type'] = 'object';
-            $schema['properties']['properties']['items'] = ['$ref' => '#/definitions/properties'];
-            $schema['properties']['properties']['description'] = 'Database definition';
-            $schema['definitions'] = [
-                'properties' => [
-                    'type' => 'object',
-                ],
-            ];
-        }
-        return json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return json_encode(static::$schemaValidator, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * @return string
+     */
     public function toJson()
     {
         $currentClass = new $this->className;
@@ -544,11 +602,21 @@ class Tecnodesign_Schema implements ArrayAccess
                 continue;
             }
 
-            if ($this->$key === null) {
+            if (empty($this->$key)) {
                 continue;
             }
 
             $json[$key] = $this->$key;
+        }
+
+        // Fix named arrays
+        foreach (['properties', 'relations', 'scope', 'overlay'] as $key) {
+            if (isset($json[$key])) {
+                foreach ($json[$key] as $id => $values) {
+                    $json[$key][$id] = ['id' => $id] + $json[$key][$id];
+                }
+                $json[$key] = array_values($json[$key]);
+            }
         }
 
         return json_encode($json,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);

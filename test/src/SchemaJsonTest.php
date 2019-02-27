@@ -1,7 +1,6 @@
 <?php
 /**
  * References
- * @see https://json-schema.org/understanding-json-schema/index.html
  */
 namespace TecnodesignTest;
 
@@ -58,7 +57,6 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
                     if (isset($definedAlias[$key])) {
                         continue;
                     }
-                    $value=$loadedSchema[$key];
                     $this->assertNull($loadedSchema[$key], "\$schema $key is null");
                 }
             }
@@ -83,7 +81,7 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
             $loadedSchema = new \Tecnodesign_Schema(new $className());
 
             $jsonSchema = $loadedSchema->toJson();
-            $jsonSchemaValidator = $loadedSchema->getJsonSchema();
+            $jsonSchemaValidator = $loadedSchema->getJsonSchemaValidator();
 
             $this->assertInternalType('string', $jsonSchema);
             $this->assertInternalType('string', $jsonSchemaValidator);
@@ -108,7 +106,7 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
             } catch (Exception $e) {
                 throw $e;
             }
-            $this->fail("Invalid schema validate");
+            $this->fail('Invalid schema validate');
         }
     }
 }
