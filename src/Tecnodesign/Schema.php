@@ -73,11 +73,11 @@ class Tecnodesign_Schema implements ArrayAccess
                 'description' => 'Database definition',
                 'items' => [
                     'type' => 'object',
-                    'required' => ['id', 'type', 'null'],
+                    'required' => ['id', 'type'],
                     'additionalProperties' => false,
                     'properties' => [
                         'id' => ['type' => 'string'],
-                        'type' => ['type' => 'string', 'enum' => ['int', 'string', 'date', 'datetime']],
+                        'type' => ['type' => 'string', 'enum' => ['int', 'string', 'date', 'datetime','bool']],
                         'null' => ['type' => 'boolean'],
                         'default' => ['type' => ['number', 'string']],
                         'primary' => ['type' => 'boolean', 'enum' => [true]],
@@ -85,6 +85,10 @@ class Tecnodesign_Schema implements ArrayAccess
                         'size' => ['type' => ['number', 'string']],
                         'min-size' => ['type' => ['number', 'string']],
                         'max' => ['type' => ['number', 'string']],
+                        'min' => ['type' => ['number', 'string']],
+                        'serialize'=>['type' => 'string', 'enum' => ['php', 'yaml']],
+                        // exists in Tecnodesign_Studio_Config
+                        'idPattern' => ['type' => 'string'],
                     ],
                 ]
             ]

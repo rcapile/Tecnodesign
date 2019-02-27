@@ -70,7 +70,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
     //--tdz-schema-end--
     protected static $content_types=null;
     protected $subposition;
-    
+
     public static function preview($c)
     {
         if(!($c instanceof self)) {
@@ -101,7 +101,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
         return $content;
     }
 
-    public function getForm($scope)
+    public function getForm($scope=null, $pk=false)
     {
         $cn = get_called_class();
         if(!isset($cn::$schema['e-studio-configured'])) {
@@ -220,7 +220,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
             if(is_array($code) && isset($code['before'])) {
                 $result .= $code['before'];
             }
-          
+
             if(is_array($code) && isset($code['export'])) {
                 $result .= eval("return {$code['export']};");
             } else if(is_array($code)) {
@@ -228,7 +228,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
             } else {
                 $result .= $code;
             }
-            
+
             $result = "<div id=\"c{$this->id}\" class=\"tdzc\">{$result}</div>";
             return $result;
         }
@@ -310,7 +310,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
     {
         if(is_null($code) && isset($this)) {
             $code = $this->content;
-            if(!file_exists($code)) 
+            if(!file_exists($code))
               $code = Tecnodesign_Yaml::load($code);
         }
         if(is_array($code)) {
@@ -323,7 +323,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
     {
         if(is_null($code) && isset($this)) {
             $code = $this->content;
-            if(!file_exists($code)) 
+            if(!file_exists($code))
               $code = Tecnodesign_Yaml::load($code);
         }
         if(is_array($code)) {
@@ -396,7 +396,7 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
                 $code = Tecnodesign_Yaml::load($code);
             }
         }
-        
+
         if(!is_array($code)) {
             $code = array('entry'=>$code);
         }
@@ -421,12 +421,12 @@ class Tecnodesign_Studio_ContentDisplay extends Tecnodesign_Model
         } else {
             unset($code['master']);
         }
-        
+
         if(!is_numeric($code['entry'])) {
             $code['entry']=$e;
         }
         //return array('export'=>'tdz_feed('.var_export($code,true).')');
         return array('export'=>'tdzEntry::feedPreview('.var_export($code, true).')');
     }
-    
+
 }
