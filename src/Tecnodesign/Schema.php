@@ -622,6 +622,36 @@ class Tecnodesign_Schema implements ArrayAccess
         return json_encode($json,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * @param $json
+     * @return array
+     */
+    public function fromJson($json)
+    {
+        if (!is_string($json)) {
+            throw new \InvalidArgumentException('$json must be a string');
+        }
+
+        $json = json_decode($json, JSON_OBJECT_AS_ARRAY);
+
+        unset($json['$schema'], $json['$id']);
+
+        foreach (['properties', 'relations', 'scope', 'overlay'] as $key) {
+            if (isset($json[$key])) {
+                $keys = array_keys($json[$key]);
+                foreach ($keys as $k) {
+                    $id = $json[$key][$k]['id'];
+                    unset($json[$key][$k]['id']);
+                    $json[$key][$id] = $json[$key][$k];
+                    unset($json[$key][$k]);
+                }
+            }
+        }
+
+        return $json;
+    }
+
+
     protected function _jsonSchemaInteger($fd, &$R = array())
     {
         return $this->_jsonSchemaNumber($fd, $R);

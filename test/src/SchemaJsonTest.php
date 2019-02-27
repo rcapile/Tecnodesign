@@ -70,8 +70,10 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
         $schemaMetadata = $class->getStaticProperties()['meta'];
 
         // remove the alias
+        $aliases = [];
         foreach ($schemaMetadata as $key => $definition) {
             if (isset($definition['alias'])) {
+                $aliases[$key] = $definition['alias'];
                 unset($schemaMetadata[$key]);
             }
         }
@@ -80,7 +82,7 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
         foreach (['TecnodesignTest\\SimpleModel', 'TecnodesignTest\\ComplexModel'] as $className) {
             $loadedSchema = new \Tecnodesign_Schema(new $className());
 
-            $jsonSchema = $loadedSchema->toJson();
+            $jsonSchema = $jsonSchemaOriginal = $loadedSchema->toJson();
             $jsonSchemaValidator = $loadedSchema->getJsonSchemaValidator();
 
             $this->assertInternalType('string', $jsonSchema);
@@ -98,15 +100,30 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
 
             // Make invalid schema
             $jsonSchema->database = false;
+            $schemaInvalid = false;
             try {
                 $schemaValidate->in($jsonSchema);
             } catch (TypeException $exception) {
                 $this->assertEquals($exception->getMessage(), 'String expected, false received at #->properties:database');
-                continue;
+                $schemaInvalid = true;
             } catch (Exception $e) {
                 throw $e;
             }
-            $this->fail('Invalid schema validate');
+            $this->assertTrue($schemaInvalid, 'Invalid schema validate');
+
+            $jsonSchemaReverse = $loadedSchema->fromJson($jsonSchemaOriginal);
+            $classSchema = $className::$schema;
+            foreach ($aliases as $key => $definition) {
+                if (isset($aliases[$key])) {
+                    $this->assertArrayNotHasKey($key, $jsonSchemaReverse, "Reverse json does not has alias {$aliases[$key]}");
+                    $classSchema[$aliases[$key]] = $classSchema[$key];
+                    unset($classSchema[$key]);
+                }
+            }
+            foreach ($jsonSchemaReverse as $key => $value) {
+                $this->assertArrayHasKey($key, $classSchema, "Original schema has key $key");
+                $this->assertEquals($value, $classSchema[$key], "Original schema value for key $key is equal");
+            }
         }
     }
 }
