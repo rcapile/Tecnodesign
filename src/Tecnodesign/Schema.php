@@ -508,13 +508,22 @@ class Tecnodesign_Schema implements ArrayAccess
         ];
 
         foreach (self::$meta as $key => $definition) {
-            if (isset($definition['alias'])) {
-                $schema['properties'][$key] = ['alias' => $definition['alias']];
-            } else {
+            if (!isset($definition['alias'])) {
                 $schema['properties'][$key] = ['type' => $definition['type']];
             }
         }
 
+        // properties especifico
+        if (isset($schema['properties']['properties'])) {
+            $schema['properties']['properties']['type'] = 'object';
+            $schema['properties']['properties']['items'] = ['$ref' => '#/definitions/properties'];
+            $schema['properties']['properties']['description'] = 'Database definition';
+            $schema['definitions'] = [
+                'properties' => [
+                    'type' => 'object',
+                ],
+            ];
+        }
         return json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 

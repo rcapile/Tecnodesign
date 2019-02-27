@@ -1,7 +1,12 @@
 <?php
-
+/**
+ * References
+ * @see https://json-schema.org/understanding-json-schema/index.html
+ */
 namespace TecnodesignTest;
 
+use Exception;
+use Swaggest\JsonSchema\Exception\TypeException;
 use Swaggest\JsonSchema\Schema as SwaggestSchema;
 
 require_once __DIR__ .'/../assets/models/SimpleModel.php';
@@ -84,14 +89,26 @@ class SchemaJsonTest extends \PHPUnit_Framework_TestCase
             $this->assertInternalType('string', $jsonSchemaValidator);
 
             $jsonSchemaValidator = json_decode($jsonSchemaValidator);
-            $jsonSchema = (object)json_decode($jsonSchema, JSON_OBJECT_AS_ARRAY);
+            $jsonSchema = json_decode($jsonSchema);
 
             // There can be only allowed metadata keys
-            $diff = array_diff(array_keys((array)$jsonSchema), $validMetadataKeys);
-            $this->assertEmpty($diff);
+            $this->assertEmpty(array_diff(array_keys((array)$jsonSchema), $validMetadataKeys));
+            $this->assertEmpty(array_diff(array_keys((array)$jsonSchemaValidator->properties), $validMetadataKeys));
 
             $schemaValidate = SwaggestSchema::import($jsonSchemaValidator);
             $schemaValidate->in($jsonSchema);
+
+            // Make invalid schema
+            $jsonSchema->database = false;
+            try {
+                $schemaValidate->in($jsonSchema);
+            } catch (TypeException $exception) {
+                $this->assertEquals($exception->getMessage(), 'String expected, false received at #->properties:database');
+                continue;
+            } catch (Exception $e) {
+                throw $e;
+            }
+            $this->fail("Invalid schema validate");
         }
     }
 }
